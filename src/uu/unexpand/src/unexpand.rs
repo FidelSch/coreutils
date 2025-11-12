@@ -36,11 +36,11 @@ enum ParseError {
 impl UError for ParseError {}
 
 fn tabstops_parse(s: &str) -> Result<Vec<usize>, ParseError> {
-    let words = s.split(',');
+    let words: Vec<&str> = s.split(',').collect();
 
     let mut nums = Vec::new();
 
-    for word in words {
+    for word in &words {
         match word.parse::<usize>() {
             Ok(num) => nums.push(num),
             Err(e) => {
@@ -51,6 +51,17 @@ fn tabstops_parse(s: &str) -> Result<Vec<usize>, ParseError> {
                     )),
                 };
             }
+        }
+    }
+
+    // Last tab stop may be prefixed with '+' to indicate relative tab stop
+    // Only relevant when given at least two tab stops
+    if nums.len() >= 2 {
+        let last_given_tabstop = words.last().unwrap_or(&"");
+        if last_given_tabstop.starts_with('+') {
+            // Update last tab stop to be relative to previous one
+            let last_idx = nums.len() - 1;
+            nums[last_idx] += nums[last_idx - 1];
         }
     }
 
@@ -464,5 +475,15 @@ mod tests {
         assert!(is_digit_or_comma('1'));
         assert!(is_digit_or_comma(','));
         assert!(!is_digit_or_comma('a'));
+    }
+
+    #[test]
+    fn test_tabstops_parse() {
+        use crate::tabstops_parse;
+        assert_eq!(tabstops_parse("4,8,12").unwrap(), vec![4, 8, 12]);
+        assert_eq!(tabstops_parse("4,+4").unwrap(), vec![4, 8]);
+        assert!(tabstops_parse("8,4").is_err());
+        assert!(tabstops_parse("0,8").is_err());
+        assert!(tabstops_parse("a,8").is_err());
     }
 }
